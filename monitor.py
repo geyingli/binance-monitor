@@ -58,10 +58,11 @@ class Monitor:
                 (price > self.ma_7d_price and price > self.ma_7h_price and price > self.ma_7m_price):
 
             if self.last_alarm != 1 or time.time() - self.last_alarm_tic > 600:
-                print("%s >>> %s, $%s, 交易量突增" % (
+                print("%s >>> %s, $%s, 交易量突增 ($%d)" % (
                     utils.tic2time(tic),
                     self.symbol,
                     utils.standardize(price),
+                    volume,
                 ))
                 pygame.mixer.music.play()    # 播放提示音
                 self.last_alarm = 1
