@@ -42,13 +42,20 @@ def standardize(price, valid=4):
 
 
 def tic2time(tic):
-    """将tic转换为年月日"""
+    """将时间戳转换为时间"""
 
     if tic > 1000000000000:
         tic /= 1000
 
     date = time.localtime(tic)
     return "%s年%s月%s日 %02d:%02d:%02d" % (date.tm_year, date.tm_mon, date.tm_mday, date.tm_hour, date.tm_min, date.tm_sec)
+
+
+def time2tic(year, month, day, hour, minute, second):
+    """将时间转换为时间戳"""
+
+    t = "%s-%s-%s %02d:%02d:%02d" % (year, month, day, hour, minute, second)
+    return int(time.mktime(time.strptime(t, "%Y-%m-%d %H:%M:%S")))
 
 
 def get_diagnal_corr(prices):
