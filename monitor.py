@@ -15,8 +15,8 @@ class Monitor:
         symbol,                                 # 资产名称
         tics,                                   # 时间戳
         prices,                                 # 价格
-        volumes,                                # 交易量
-        volume_ratio=10,                        # 超出均交易量多大比例认为交易量突增
+        volumes,                                # 交易额
+        volume_ratio=10,                        # 超出均交易额多大比例认为交易额突增
     ):
         self.symbol = symbol
         self.tics = tics
@@ -28,9 +28,9 @@ class Monitor:
 
         self.ma_7m_price = data_loader.get_moving_average(prices, "7m")[-1]    # 7分钟滑动平均价
         self.ma_7h_price = data_loader.get_moving_average(prices, "7h")[-1]    # 7小时滑动平均价
-        self.ma_7h_volume = data_loader.get_moving_average(volumes, "7h")[-1]    # 7日滑动平均交易量
+        self.ma_7h_volume = data_loader.get_moving_average(volumes, "7h")[-1]    # 7日滑动平均交易额
         self.ma_7d_price = data_loader.get_moving_average(prices, "7d")[-1]    # 7日滑动平均价
-        self.ma_7d_volume = data_loader.get_moving_average(volumes, "7d")[-1]    # 7日滑动平均交易量
+        self.ma_7d_volume = data_loader.get_moving_average(volumes, "7d")[-1]    # 7日滑动平均交易额
 
     def update(self, tic, price, volume):
         """更新最新数据"""
@@ -53,15 +53,16 @@ class Monitor:
         price = self.prices[-1]
         volume = self.volumes[-1]
 
-        # 突破7天/7小时均交易量一定倍数，价格大于7天/7小时/7分钟均价
+        # 突破7天/7小时均交易额一定倍数，价格大于7天/7小时/7分钟均价
         if (volume > self.ma_7d_volume * self.volume_ratio and volume > self.ma_7h_volume * self.volume_ratio) and \
                 (price > self.ma_7d_price and price > self.ma_7h_price and price > self.ma_7m_price):
 
             if self.last_alarm != 1 or time.time() - self.last_alarm_tic > 600 and volume > 10000:
-                print("%s >>> %s, $%s, 交易量突增 ($%d万)" % (
+                print("%s >>> %s, $%s, 交易额突增%.1f倍 ($%d万)" % (
                     utils.tic2time(tic),
                     self.symbol,
                     utils.standardize(price),
+                    volume / self.ma_7h_volume - 1,
                     int(volume/10000),
                 ))
                 pygame.mixer.music.play()    # 播放提示音
@@ -119,7 +120,7 @@ if __name__ == "__main__":
         if not os.path.exists(file):
             continue
         data = data_loader.Data(file)    # 读取历史数据
-        if len(data.prices) < data_loader.DAY * 7:    # 数据不满足监控条件（需要计算滑动平均价/交易量）
+        if len(data.prices) < data_loader.DAY * 7:    # 数据不满足监控条件（需要计算滑动平均价/交易额）
             continue
         monitors[coin] = Monitor(    # 创建模型
             coin,
@@ -130,7 +131,7 @@ if __name__ == "__main__":
         )
         last_timestamps[coin] = data.tics[-1]
 
-    print("计算头部交易量币种...")
+    print("计算头部交易额币种...")
     items = [(coin, monitors[coin].ma_7d_volume) for coin in monitors]
     items.sort(key=lambda x: x[1], reverse=True)
     top100 = {}
@@ -148,7 +149,7 @@ if __name__ == "__main__":
         # 监控上涨
         for coin, monitor in monitors.items():
 
-            # 非头部100交易量币种，不参与考量
+            # 非头部100交易额币种，不参与考量
             if coin not in top100:
                 continue
 
