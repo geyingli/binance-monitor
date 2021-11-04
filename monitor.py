@@ -76,11 +76,12 @@ class Monitor:
                 continue
 
             if self.last_alarm != 1 or time.time() - self.last_alarm_tic > 600:
-                print("%s >>> %s, $%s, %s分钟内价格上涨5%%" % (
+                print("%s >>> %s, $%s, %s分钟内价格上涨%.1f%%" % (
                     utils.tic2time(tic),
                     self.symbol,
                     utils.standardize(price),
                     i,
+                    (price / self.prices[-1-i] - 1) * 100,
                 ))
                 pygame.mixer.music.play()    # 播放提示音
                 self.last_alarm = 1
@@ -95,11 +96,12 @@ class Monitor:
                 continue
 
             if self.last_alarm != -1 or time.time() - self.last_alarm_tic > 600:
-                print("%s >>> %s, $%s, %s分钟内价格下跌1%%" % (
+                print("%s >>> %s, $%s, %s分钟内价格下跌%.1f%%" % (
                     utils.tic2time(tic),
                     self.symbol,
                     utils.standardize(price),
                     i,
+                    (1 - price / self.prices[-1-i]) * 100,
                 ))
                 pygame.mixer.music.play()    # 播放提示音
                 self.last_alarm = -1
