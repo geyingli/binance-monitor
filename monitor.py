@@ -96,14 +96,16 @@ class Monitor:
                 continue
 
             if self.last_alarm != -1 or time.time() - self.last_alarm_tic > 600:
-                print("%s >>> %s, $%s, %s分钟内价格下跌%.1f%%" % (
+                print("\033[1;31m%s >>> %s, $%s, %s分钟内价格下跌%.1f%%\033[0m" % (    # 显示红色字体
                     utils.tic2time(tic),
                     self.symbol,
                     utils.standardize(price),
                     i,
                     (1 - price / self.prices[-1-i]) * 100,
                 ))
-                pygame.mixer.music.play()    # 播放提示音
+                for _ in range(5):
+                    pygame.mixer.music.play()    # 重复播放提示音
+                    time.sleep(0.5)
                 self.last_alarm = -1
                 self.last_alarm_tic = time.time()
             return
@@ -143,16 +145,23 @@ if __name__ == "__main__":
         print("No.%d %s $%d" % (i + 1, coin, mean_volume))
         top100[coin] = monitors[coin]
 
+    print("准备当期指数计算...")
+    init_prices = {}
+    for coin, monitor in top100.items():
+        init_prices[coin] = monitor.prices[-1]
+    last_cal_index_tic = -1
+
     print("开始执行价量监控...")
     pygame.mixer.init()
     pygame.mixer.music.load("refs/alarm.mp3")
-    last_cal_index_tic = -1    # 上一次计算并打印价格指数
     while True:
 
-        # 计算价量指数
-        index = sum([m.prices[-1] for m in top100.values()]) / 100
+        # 计算top100综合价格指数
+        index = 0
+        for coin, monitor in top100.items():
+            index += monitor.prices[-1] / init_prices[coin] / 100
         if time.time() - last_cal_index_tic > 600:
-            print("%s --- 价格指数, $%.2f" % (
+            print("%s --- 价格指数, %.2f" % (
                 utils.tic2time(time.time()),
                 index,
             ))
