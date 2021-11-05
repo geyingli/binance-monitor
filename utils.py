@@ -23,9 +23,9 @@ def standardize(price, valid=4):
     started = False
     after_dot = False
     for i in range(len(s)):
-        if not started and s[i] != "." and s[i] != "0":
+        if not started and s[i] != "." and s[i] != "0":    # 遇到第一个有意义数
             started = True
-        if not after_dot and s[i] == ".":
+        if not after_dot and s[i] == ".":    # 遇到小数点
             after_dot = True
 
         if s[i] != ".":

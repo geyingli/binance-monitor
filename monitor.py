@@ -161,7 +161,7 @@ if __name__ == "__main__":
         for coin, monitor in top100.items():
             index += monitor.prices[-1] / init_prices[coin] / 100
         if time.time() - last_cal_index_tic > 600:
-            print("%s --- 价格指数, %.2f" % (
+            print("%s --- 价格指数, %.3f" % (
                 utils.tic2time(time.time()),
                 index,
             ))
