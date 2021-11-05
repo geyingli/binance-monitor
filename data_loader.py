@@ -114,7 +114,7 @@ def data_loader(symbol, interval, file, verbosity=1):
     if last_timestamp:
         init_timestamp = last_timestamp + 60 * TIMESTAMP_UNIT
     else:
-        init_timestamp = (time.time() - 7 * 24 * 60 * 60) * TIMESTAMP_UNIT
+        init_timestamp = int(time.time() - 7 * 24 * 60 * 60) * TIMESTAMP_UNIT
 
     # 获取最新数据
     latest_data = get_latest_data(symbol, interval, init_timestamp, verbosity)

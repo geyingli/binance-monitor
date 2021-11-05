@@ -141,30 +141,40 @@ if __name__ == "__main__":
         coin = item[0]
         mean_volume = item[1]
         print("No.%d %s $%d" % (i + 1, coin, mean_volume))
-        top100[coin] = 1
+        top100[coin] = monitors[coin]
 
     print("开始执行价量监控...")
     pygame.mixer.init()
     pygame.mixer.music.load("refs/alarm.mp3")
+    last_cal_index_tic = -1    # 上一次计算并打印价格指数
     while True:
 
-        # 监控上涨
-        for coin, monitor in monitors.items():
+        # 计算价量指数
+        index = sum([m.prices[-1] for m in top100.values()]) / 100
+        if time.time() - last_cal_index_tic > 600:
+            print("%s --- 价格指数, $%.2f" % (
+                utils.tic2time(time.time()),
+                index,
+            ))
+            last_cal_index_tic = time.time()
 
-            # 非头部100交易额币种，不参与考量
-            if coin not in top100:
-                continue
+        # 跟踪价量
+        for coin, monitor in top100.items():
 
-            # 实时更新最新数据
-            time.sleep(1.5)    # 避免频繁请求币安API，低于1.5秒可能会触发币安的流量管控
+            # 获取最新数据
             latest_data = data_loader.get_latest_data(coin, "1m", last_timestamps[coin] + 1, verbosity=0)
-            if len(latest_data) == 0:    # 未能获得最新数据
+            if not isinstance(latest_data, list) or len(latest_data) == 0:    # 未能获得最新数据
                 continue
-            for item in latest_data:
-                monitor.update(
-                    tic=float(item[0]),
-                    price=float(item[4]),
-                    volume=float(item[7]),
-                )
-                monitor.execute()
+
+            # 更新文件
+            file = "data/%s.1m.data" % coin
+            with open(file, "a", encoding="utf-8") as f:
+                for item in latest_data:
+                    monitor.update(
+                        tic=float(item[0]),
+                        price=float(item[4]),
+                        volume=float(item[7]),
+                    )
+                    monitor.execute()
+                    f.write("%s\n" % "\t".join(list(map(str, item))))
             last_timestamps[coin] = int(latest_data[-1][0])
