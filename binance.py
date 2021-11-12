@@ -27,6 +27,7 @@ class BinanceAPI:
         self.verbosity = verbosity
 
         self.last_fail_tic = -1    # 上一次报错时间戳 (避免报错信息刷屏，距离上一次报错太近则不报错)
+        self.lost_connection = False    # 是否断开网络连接
 
     def get_ping(self):
         """检测是否与服务器连接成功
@@ -41,10 +42,7 @@ class BinanceAPI:
         try:
             return self._request_without_sign(url, params)
         except Exception as e:
-            if time.time() - self.last_fail_tic > 60:
-                print("FAIL: %s" % e)
-            self.last_fail_tic = time.time()
-            return
+            return self._process_error(e)
 
     def get_time(self):
         """获取服务器时间戳
@@ -59,10 +57,7 @@ class BinanceAPI:
         try:
             return self._request_without_sign(url, params)
         except Exception as e:
-            if time.time() - self.last_fail_tic > 60:
-                print("FAIL: %s" % e)
-            self.last_fail_tic = time.time()
-            return
+            return self._process_error(e)
 
     def get_price(self, symbol=None):
         """获取资产现价
@@ -82,10 +77,7 @@ class BinanceAPI:
         try:
             return self._request_without_sign(url, params)
         except Exception as e:
-            if time.time() - self.last_fail_tic > 60:
-                print("FAIL: %s" % e)
-            self.last_fail_tic = time.time()
-            return
+            return self._process_error(e)
 
     def get_price_change(self, symbol, interval="24hr"):
         """获取资产区间交易信息
@@ -120,10 +112,7 @@ class BinanceAPI:
         try:
             return self._request_without_sign(url, params)
         except Exception as e:
-            if time.time() - self.last_fail_tic > 60:
-                print("FAIL: %s" % e)
-            self.last_fail_tic = time.time()
-            return
+            return self._process_error(e)
 
     def get_ticker_bookticker(self, symbol):
         """获取资产挂单价
@@ -144,10 +133,7 @@ class BinanceAPI:
         try:
             return self._request_without_sign(url, params)
         except Exception as e:
-            if time.time() - self.last_fail_tic > 60:
-                print("FAIL: %s" % e)
-            self.last_fail_tic = time.time()
-            return
+            return self._process_error(e)
 
     def get_prices(self, symbol, interval="1m", startTime=None, endTime=None):
         """获取区间价格
@@ -182,10 +168,7 @@ class BinanceAPI:
         try:
             return self._request_without_sign(url, params)
         except Exception as e:
-            if time.time() - self.last_fail_tic > 60:
-                print("FAIL: %s" % e)
-            self.last_fail_tic = time.time()
-            return
+            return self._process_error(e)
 
     def get_historical_trades(self, symbol, limit=500, startTime=None, endTime=None):
         """获取历史交易
@@ -216,10 +199,7 @@ class BinanceAPI:
         try:
             return self._request_without_sign(url, params)
         except Exception as e:
-            if time.time() - self.last_fail_tic > 60:
-                print("FAIL: %s" % e)
-            self.last_fail_tic = time.time()
-            return
+            return self._process_error(e)
 
     def get_account(self):
         """获取账户信息
@@ -257,10 +237,7 @@ class BinanceAPI:
         try:
             return self._request_with_sign(url, params)
         except Exception as e:
-            if time.time() - self.last_fail_tic > 60:
-                print("FAIL: %s" % e)
-            self.last_fail_tic = time.time()
-            return
+            return self._process_error(e)
 
     def get_account_value(self):
         """获取账户剩余价值
@@ -363,7 +340,11 @@ class BinanceAPI:
         # 请求
         data = requests.get(url, headers=header, timeout=180, verify=True)
         try:
-            return data.json()
+            d = data.json()
+            if self.lost_connection:
+                print("网络已恢复")
+                self.lost_connection = False
+            return d
         except Exception:
             return "FAIL: " + data.content.decode('utf-8')
 
@@ -377,7 +358,11 @@ class BinanceAPI:
         # 请求
         data = requests.get(url, timeout=180, verify=True)
         try:
-            return data.json()
+            d = data.json()
+            if self.lost_connection:
+                print("网络已恢复")
+                self.lost_connection = False
+            return d
         except Exception:
             return "FAIL: " + data.content.decode('utf-8')
 
@@ -398,6 +383,15 @@ class BinanceAPI:
         data["signature"] = signature
 
         return data
+
+    def _process_error(self, e):
+        """处理报错"""
+        if time.time() - self.last_fail_tic > 60:
+            print("FAIL: %s" % e)
+            if ("%s" % e).startswith("HTTPSConnectionPool"):
+                print("网络连接失败")
+                self.lost_connection = True
+        self.last_fail_tic = time.time()
 
 
 # 读取API配置
@@ -420,5 +414,11 @@ if __name__ == "__main__":
     # pprint.pprint(instance.get_prices("BTCUSDT", interval="1h", startTime=None, endTime=None))    # 获取价格区间
     # pprint.pprint(instance.get_price_change("BTCUSDT", interval="24hr"))    # 获取价格区间变动
     # pprint.pprint(instance.get_account())    # 获取账户信息
-    pprint.pprint(instance.get_account_value())    # 获取账户价值
+    # pprint.pprint(instance.get_account_value())    # 获取账户价值
     # pprint.pprint(instance.trade("BTCUSDT", quantity=1.0, side="BUY", limit_price=None))    # 现货交易 (暂时无法执行)
+
+    # 定期打印账户价值
+    while True:
+        print(utils.tic2time(time.time()))
+        pprint.pprint(instance.get_account_value())    # 获取账户价值
+        time.sleep(60)

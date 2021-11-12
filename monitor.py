@@ -53,11 +53,11 @@ class Monitor:
         price = self.prices[-1]
         volume = self.volumes[-1]
 
-        # 突破7天/7小时均交易额一定倍数，价格大于7天/7小时/7分钟均价
+        # 突破7天/7小时均交易额一定倍数，且在50万美元以上；价格大于7天/7小时/7分钟均价
         if (volume > self.ma_7d_volume * self.volume_ratio and volume > self.ma_7h_volume * self.volume_ratio) and \
-                (price > self.ma_7d_price and price > self.ma_7h_price and price > self.ma_7m_price):
+                (price > self.ma_7d_price and price > self.ma_7h_price and price > self.ma_7m_price) and volume > 500000:
 
-            if self.last_alarm != 1 or time.time() - self.last_alarm_tic > 600 and volume > 10000:
+            if self.last_alarm != 1 or time.time() - self.last_alarm_tic > 600:
                 print("%s >>> %s, $%s, 交易额突增%.1f倍 ($%d万)" % (
                     utils.tic2time(tic),
                     self.symbol,
@@ -138,16 +138,16 @@ if __name__ == "__main__":
     print("计算头部交易额币种...")
     items = [(coin, monitors[coin].ma_7d_volume) for coin in monitors]
     items.sort(key=lambda x: x[1], reverse=True)
-    top100 = {}
-    for i, item in enumerate(items[:100]):
+    top = {}
+    for i, item in enumerate(items[:150]):
         coin = item[0]
         mean_volume = item[1]
         print("No.%d %s $%d" % (i + 1, coin, mean_volume))
-        top100[coin] = monitors[coin]
+        top[coin] = monitors[coin]
 
     print("准备当期指数计算...")
     init_prices = {}
-    for coin, monitor in top100.items():
+    for coin, monitor in top.items():
         init_prices[coin] = monitor.prices[-1]
     last_cal_index_tic = -1
 
@@ -156,19 +156,19 @@ if __name__ == "__main__":
     pygame.mixer.music.load("refs/alarm.mp3")
     while True:
 
-        # 计算top100综合价格指数
+        # 计算top综合价格指数
         index = 0
-        for coin, monitor in top100.items():
-            index += monitor.prices[-1] / init_prices[coin] / 100
+        for coin, monitor in top.items():
+            index += monitor.prices[-1] / init_prices[coin]
         if time.time() - last_cal_index_tic > 600:
-            print("%s --- 价格指数, %.3f" % (
+            print("%s --- 价格指数, %.1f" % (
                 utils.tic2time(time.time()),
                 index,
             ))
             last_cal_index_tic = time.time()
 
         # 跟踪价量
-        for coin, monitor in top100.items():
+        for coin, monitor in top.items():
 
             # 获取最新数据
             latest_data = data_loader.get_latest_data(coin, "1m", last_timestamps[coin] + 1, verbosity=0)
