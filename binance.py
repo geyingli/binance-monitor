@@ -26,7 +26,6 @@ class BinanceAPI:
         self.secret = secret    # Secret Key
         self.verbosity = verbosity
 
-        self.last_fail_tic = -1    # 上一次报错时间戳 (避免报错信息刷屏，距离上一次报错太近则不报错)
         self.lost_connection = False    # 是否断开网络连接
 
     def get_ping(self):
@@ -322,9 +321,7 @@ class BinanceAPI:
         try:
             return self._request_with_sign(url, params)
         except Exception as e:
-            if time.time() - self.last_fail_tic > 60:
-                print("FAIL: %s" % e)
-            self.last_fail_tic = time.time()
+            print("FAIL: %s" % e)
             return
 
     def _request_with_sign(self, url, params):
@@ -342,7 +339,7 @@ class BinanceAPI:
         try:
             d = data.json()
             if self.lost_connection:
-                print("网络已恢复")
+                print("网络连接已恢复")
                 self.lost_connection = False
             return d
         except Exception:
@@ -360,7 +357,7 @@ class BinanceAPI:
         try:
             d = data.json()
             if self.lost_connection:
-                print("网络已恢复")
+                print("网络连接已恢复")
                 self.lost_connection = False
             return d
         except Exception:
@@ -386,12 +383,12 @@ class BinanceAPI:
 
     def _process_error(self, e):
         """处理报错"""
-        if time.time() - self.last_fail_tic > 60:
+        if not self.lost_connection:
             print("FAIL: %s" % e)
             if ("%s" % e).startswith("HTTPSConnectionPool"):
                 print("网络连接失败")
-                self.lost_connection = True
-        self.last_fail_tic = time.time()
+            self.lost_connection = True
+        return None
 
 
 # 读取API配置
