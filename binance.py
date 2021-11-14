@@ -384,9 +384,10 @@ class BinanceAPI:
     def _process_error(self, e):
         """处理报错"""
         if not self.lost_connection:
-            print("FAIL: %s" % e)
             if ("%s" % e).startswith("HTTPSConnectionPool"):
                 print("网络连接失败")
+            else:
+                print("FAIL: %s" % e)
             self.lost_connection = True
         return None
 

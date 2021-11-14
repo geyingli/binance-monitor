@@ -16,25 +16,69 @@ def mkdir(path, clear=False):
 
 
 def standardize(price, valid=4):
-    """去除价格尾部的0"""
+    """标准化价格"""
 
     s = str(price)
-    n = 0    # 非零/有意义数字数量
-    started = False
+
+    # 移除科学计数
+    if "e" in s:
+        base = s[:s.index("e")]
+        exponent = int(s[s.index("e") + 1:])
+
+        # 确定"点"位
+        if "." in base:
+            integer = base[:base.index(".")]
+            decimal = base[base.index(".") + 1:]
+        else:
+            integer = base
+            decimal = ""
+
+        # 指数大于0
+        for _ in range(abs(exponent)):
+            if exponent > 0:
+                if decimal:
+                    integer += decimal[0]
+                    decimal = decimal[1:]
+                else:
+                    integer += "0"
+            elif exponent < 0:
+                decimal = integer[-1] + decimal
+                integer = integer[:-1]
+                if not integer:
+                    integer = "0"
+
+        # 重组s
+        s = str(int(integer))
+        if decimal:
+            s += "." + decimal
+
+    # 保证非零/非点数 (有效数字) 数量在`valid`及以下
+    n = 0
+    on_valid = False
     after_dot = False
     for i in range(len(s)):
-        if not started and s[i] != "." and s[i] != "0":    # 遇到第一个有意义数
-            started = True
+        if not on_valid and s[i] not in (".", "0"):    # 遇到第一个有效数
+            on_valid = True
         if not after_dot and s[i] == ".":    # 遇到小数点
             after_dot = True
 
         if s[i] != ".":
-            if started:
+            if on_valid:
                 n += 1
-            if after_dot and n > valid:
+            if after_dot and n == valid:
                 break
+    s = s[:i + 1]
 
-    s = s[:i]
+    # 去尾部0
+    j = len(s)
+    if "." in s:
+        for i in range(len(s) - 1, 1, -1):
+            if s[i] != "0":
+                break
+            j = i
+    s = s[:j]
+
+    # 去尾部标点
     if s[-1] == ".":
         s = s[:-1]
 
