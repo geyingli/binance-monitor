@@ -31,7 +31,7 @@ class BinanceAPI:
     def get_ping(self):
         """检测是否与服务器连接成功
 
-        returns: {}
+        returns: None, {}
         """
 
         url = "%s/ping" % self.BASE_URL
@@ -39,14 +39,14 @@ class BinanceAPI:
 
         # 请求
         try:
-            return self._request_without_sign(url, params)
+            return None, self._request_without_sign(url, params)
         except Exception as e:
-            return self._process_error(e)
+            return "服务连接失败: %s" % self._process_error(e), None
 
     def get_time(self):
         """获取服务器时间戳
 
-        returns: {'serverTime': 1635406440050}
+        returns: None, {'serverTime': 1635406440050}
         """
 
         url = "%s/time" % self.BASE_URL
@@ -54,14 +54,14 @@ class BinanceAPI:
 
         # 请求
         try:
-            return self._request_without_sign(url, params)
+            return None, self._request_without_sign(url, params)
         except Exception as e:
-            return self._process_error(e)
+            return "获取服务器时间戳失败: %s" % self._process_error(e), None
 
     def get_price(self, symbol=None):
         """获取资产现价
 
-        returns: {
+        returns: None, {
             "symbol": "LTCBTC",
             "price": "4.00000200"
         }
@@ -74,14 +74,14 @@ class BinanceAPI:
 
         # 请求
         try:
-            return self._request_without_sign(url, params)
+            return None, self._request_without_sign(url, params)
         except Exception as e:
-            return self._process_error(e)
+            return "获取资产现价失败: %s" % self._process_error(e), None
 
     def get_price_change(self, symbol, interval="24hr"):
         """获取资产区间交易信息
 
-        returns: {
+        returns: None, {
             "symbol": "BNBBTC",
             "priceChange": "-94.99999800",
             "priceChangePercent": "-95.960",
@@ -109,14 +109,14 @@ class BinanceAPI:
 
         # 请求
         try:
-            return self._request_without_sign(url, params)
+            return None, self._request_without_sign(url, params)
         except Exception as e:
-            return self._process_error(e)
+            return "获取资产区间交易信息失败: %s" % self._process_error(e), None
 
     def get_ticker_bookticker(self, symbol):
         """获取资产挂单价
 
-        returns: {
+        returns: None, {
           "symbol": "LTCBTC",
           "bidPrice": "4.00000000",//最优买单价
           "bidQty": "431.00000000",//挂单量
@@ -130,14 +130,14 @@ class BinanceAPI:
 
         # 请求
         try:
-            return self._request_without_sign(url, params)
+            return None, self._request_without_sign(url, params)
         except Exception as e:
-            return self._process_error(e)
+            return "获取资产挂单价失败: %s" % self._process_error(e), None
 
     def get_prices(self, symbol, interval="1m", startTime=None, endTime=None):
         """获取区间价格
 
-        returns: [
+        returns: None, [
             [
                 1499040000000,      // 开盘时间
                 "0.01634790",       // 开盘价
@@ -165,14 +165,14 @@ class BinanceAPI:
 
         # 请求
         try:
-            return self._request_without_sign(url, params)
+            return None, self._request_without_sign(url, params)
         except Exception as e:
-            return self._process_error(e)
+            return "获取区间价格失败: %s" % self._process_error(e), None
 
     def get_historical_trades(self, symbol, limit=500, startTime=None, endTime=None):
         """获取历史交易
 
-        returns: [
+        returns: None, [
             {
                 "a": 26129,         // 归集成交ID
                 "p": "0.01633102",  // 成交价
@@ -196,14 +196,14 @@ class BinanceAPI:
 
         # 请求
         try:
-            return self._request_without_sign(url, params)
+            return None, self._request_without_sign(url, params)
         except Exception as e:
-            return self._process_error(e)
+            return "获取历史交易失败: %s" % self._process_error(e), None
 
     def get_account(self):
         """获取账户信息
 
-        returns: {
+        returns: None, {
             "balances": [
                 {
                     "asset": "BTC",
@@ -234,14 +234,14 @@ class BinanceAPI:
 
         # 请求
         try:
-            return self._request_with_sign(url, params)
+            return None, self._request_with_sign(url, params)
         except Exception as e:
-            return self._process_error(e)
+            return "获取账户信息失败: %s" % self._process_error(e), None
 
     def get_account_value(self):
         """获取账户剩余价值
 
-        returns: {
+        returns: None, {
             'assets': {
                 'AUDIO': {'perc': '11.64%', 'price': 2.604, 'value': 168.2},
                 'AXS': {'perc': '10.68%', 'price': 145.85, 'value': 154.4},
@@ -255,13 +255,16 @@ class BinanceAPI:
         """
 
         # 获取持仓信息
-        account = self.get_account()
-        if account is None:
-            return
+        err, account = self.get_account()
+        if err is not None:
+            return "获取账户信息失败: %s" % err, None
 
         # 获取价格
         prices = {}
-        for market in self.get_price():
+        err, tmp_prices = self.get_price()
+        if err is not None:
+            return "获取账户信息失败: %s" % err, None
+        for market in tmp_prices:
             symbol = market["symbol"]
             price = market["price"]
             prices[symbol] = float(price)
@@ -291,17 +294,15 @@ class BinanceAPI:
             "assets": assets,
         }
 
-        return data
+        return None, data
 
     def trade(self, symbol, quantity=None, value=None, side="BUY/SELL", limit_price=None):
         """现货交易 (这个函数有问题，待排查，暂时无法执行)"""
 
         if quantity is None and value is None:
-            print("FAIL: quantity/value cannot be NONE together")
-            return
+            return "quantity/value不能同时为空", None
         elif quantity is not None and value is not None:
-            print("FAIL: quantity/value cannot be not NONE together")
-            return
+            return "quantity/value不能同时不为空", None
 
         url = "%s/order" % self.BASE_URL
         params = {"timestamp": int(1000 * time.time())}
@@ -319,10 +320,9 @@ class BinanceAPI:
 
         # 请求
         try:
-            return self._request_with_sign(url, params)
+            return None, self._request_with_sign(url, params)
         except Exception as e:
-            print("FAIL: %s" % e)
-            return
+            return "现货交易失败: %s" % self._process_error(e), None
 
     def _request_with_sign(self, url, params):
         """带有签名的HTTP请求"""
@@ -331,37 +331,41 @@ class BinanceAPI:
         query = urllib.parse.urlencode(params)
         header = {"X-MBX-APIKEY": self.key}
         url = "%s?%s" % (url, query)
-        if self.verbosity:
+        if self.verbosity > 1:
             print("REQUEST: ", url)
 
         # 请求
         data = requests.get(url, headers=header, timeout=180, verify=True)
         try:
             d = data.json()
-            if self.lost_connection:
+            if self.lost_connection and self.verbosity > 0:
                 print("网络连接已恢复")
                 self.lost_connection = False
             return d
-        except Exception:
-            return "FAIL: " + data.content.decode('utf-8')
+        except Exception as e:
+            if self.verbosity > 1:
+                print(data.content.decode("utf-8"))
+            raise e
 
     def _request_without_sign(self, url, params):
         """不带签名的HTTP请求"""
         query = urllib.parse.urlencode(params)
         url = "%s?%s" % (url, query)
-        if self.verbosity:
+        if self.verbosity > 1:
             print("REQUEST: ", url)
 
         # 请求
         data = requests.get(url, timeout=180, verify=True)
         try:
             d = data.json()
-            if self.lost_connection:
+            if self.lost_connection and self.verbosity > 0:
                 print("网络连接已恢复")
                 self.lost_connection = False
             return d
-        except Exception:
-            return "FAIL: " + data.content.decode('utf-8')
+        except Exception as e:
+            if self.verbosity > 1:
+                print(data.content.decode("utf-8"))
+            raise e
 
     def _sign(self, params):
         """签名
@@ -383,23 +387,26 @@ class BinanceAPI:
 
     def _process_error(self, e):
         """处理报错"""
-        if not self.lost_connection:
-            if ("%s" % e).startswith("HTTPSConnectionPool"):
+
+        self.lost_connection = True
+        msg = "%s" % e
+        if self.verbosity > 0:
+            if (msg.startswith("HTTPSConnectionPool") or "RemoteDisconnected" in msg):
                 print("网络连接失败")
             else:
-                print("FAIL: %s" % e)
-            self.lost_connection = True
-        return None
+                print(msg)
+        return msg
 
 
 # 读取API配置
 if not os.path.exists("api.conf"):
-    raise FileNotFoundError("未找到`./api.conf`文件，请遵循README提示操作")
+    raise FileNotFoundError("未找到`./api.conf`文件，请遵循README提示操作, 并注意保护隐私")
 with open("api.conf", encoding="utf-8") as f:
     api_conf = json.load(f)
     instance = BinanceAPI(
         api_conf["API Key"],
         api_conf["Secret Key"],
+        verbosity=1,
     )
 
 
@@ -418,5 +425,7 @@ if __name__ == "__main__":
     # 定期打印账户价值
     while True:
         print(utils.tic2time(time.time()))
-        pprint.pprint(instance.get_account_value())    # 获取账户价值
+        err, d = instance.get_account_value()    # 获取账户剩余价值
+        if err is None:
+            pprint.pprint(d)
         time.sleep(60)

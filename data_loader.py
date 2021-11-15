@@ -118,8 +118,6 @@ def data_loader(symbol, interval, file, verbosity=1):
 
     # 获取最新数据
     latest_data = get_latest_data(symbol, interval, init_timestamp, verbosity)
-    if not isinstance(latest_data, list):
-        raise ValueError("download data fail: %s" % symbol)
     with open(file, "a", encoding="utf-8") as f:
         for item in latest_data:
             f.write("%s\n" % "\t".join(list(map(str, item))))
@@ -151,10 +149,9 @@ def get_latest_data(symbol, interval, init_timestamp, verbosity=1):
 
         # 获取数据
         end_timestamp = start_timestamp + timestamp_interval - 1
-        data = instance.get_prices(symbol, interval, start_timestamp, end_timestamp)
-        if isinstance(data, dict) and "code" in data:
-            raise ValueError(data["%s" % data])
-        elif data is None:    # 网络问题等造成失败，重试
+        err, data = instance.get_prices(symbol, interval, start_timestamp, end_timestamp)
+        if err is not None:    # 网络问题等造成失败，重试
+            time.sleep(1)
             continue
         latest_data += data
 

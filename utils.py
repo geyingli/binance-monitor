@@ -59,7 +59,7 @@ def standardize(price, valid=4):
     for i in range(len(s)):
         if not on_valid and s[i] not in (".", "0"):    # 遇到第一个有效数
             on_valid = True
-        if not after_dot and s[i] == ".":    # 遇到小数点
+        if s[i] == ".":    # 遇到小数点
             after_dot = True
 
         if s[i] != ".":
