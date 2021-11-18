@@ -21,9 +21,9 @@ class BinanceAPI:
     FUTURE_URL = "https://fapi.binance.com"
     PUBLIC_URL = "https://www.binance.com/exchange/public/product"
 
-    def __init__(self, key, secret, basic_currency="USDT", verbosity=0):
-        self.key = key    # API Key
-        self.secret = secret    # Secret Key
+    def __init__(self, api_key, secret_key, basic_currency="USDT", verbosity=0):
+        self.api_key = api_key
+        self.secret_key = secret_key
         self.basic_currency = "USDT"    # 基础货币(一键平仓时将自动将资产出售为该货币)
         self.verbosity = verbosity
 
@@ -508,7 +508,7 @@ class BinanceAPI:
 
         params = self._sign(params)
         query = urllib.parse.urlencode(params)
-        header = {"X-MBX-APIKEY": self.key}
+        header = {"X-MBX-APIKEY": self.api_key}
         url = "%s" % url
         if self.verbosity > 1:
             print("REQUEST: ", url)
@@ -532,7 +532,7 @@ class BinanceAPI:
 
         params = self._sign(params)
         query = urllib.parse.urlencode(params)
-        header = {"X-MBX-APIKEY": self.key}
+        header = {"X-MBX-APIKEY": self.api_key}
         url = "%s?%s" % (url, query)
         if self.verbosity > 1:
             print("REQUEST: ", url)
@@ -582,7 +582,7 @@ class BinanceAPI:
 
         h = urllib.parse.urlencode(data)
         b = bytearray()
-        b.extend(self.secret.encode())
+        b.extend(self.secret_key.encode())
         signature = hmac.new(b, msg=h.encode("utf-8"), digestmod=hashlib.sha256).hexdigest()
         data["signature"] = signature
 
