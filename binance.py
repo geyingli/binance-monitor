@@ -39,7 +39,7 @@ class BinanceAPI:
 
         # 请求
         try:
-            return None, self._request_without_sign(url, params)
+            return None, self._get_without_sign(url, params)
         except Exception as e:
             return "服务连接失败: %s" % self._process_error(e), None
 
@@ -54,7 +54,7 @@ class BinanceAPI:
 
         # 请求
         try:
-            return None, self._request_without_sign(url, params)
+            return None, self._get_without_sign(url, params)
         except Exception as e:
             return "获取服务器时间戳失败: %s" % self._process_error(e), None
 
@@ -74,7 +74,7 @@ class BinanceAPI:
 
         # 请求
         try:
-            return None, self._request_without_sign(url, params)
+            return None, self._get_without_sign(url, params)
         except Exception as e:
             return "获取资产现价失败: %s" % self._process_error(e), None
 
@@ -109,7 +109,7 @@ class BinanceAPI:
 
         # 请求
         try:
-            return None, self._request_without_sign(url, params)
+            return None, self._get_without_sign(url, params)
         except Exception as e:
             return "获取资产区间交易信息失败: %s" % self._process_error(e), None
 
@@ -130,7 +130,7 @@ class BinanceAPI:
 
         # 请求
         try:
-            return None, self._request_without_sign(url, params)
+            return None, self._get_without_sign(url, params)
         except Exception as e:
             return "获取资产挂单价失败: %s" % self._process_error(e), None
 
@@ -165,7 +165,7 @@ class BinanceAPI:
 
         # 请求
         try:
-            return None, self._request_without_sign(url, params)
+            return None, self._get_without_sign(url, params)
         except Exception as e:
             return "获取区间价格失败: %s" % self._process_error(e), None
 
@@ -196,7 +196,7 @@ class BinanceAPI:
 
         # 请求
         try:
-            return None, self._request_without_sign(url, params)
+            return None, self._get_without_sign(url, params)
         except Exception as e:
             return "获取历史交易失败: %s" % self._process_error(e), None
 
@@ -234,7 +234,7 @@ class BinanceAPI:
 
         # 请求
         try:
-            return None, self._request_with_sign(url, params)
+            return None, self._get_with_sign(url, params)
         except Exception as e:
             return "获取账户信息失败: %s" % self._process_error(e), None
 
@@ -243,14 +243,26 @@ class BinanceAPI:
 
         returns: None, {
             'assets': {
-                'AUDIO': {'perc': '11.64%', 'price': 2.604, 'value': 168.2},
-                'AXS': {'perc': '10.68%', 'price': 145.85, 'value': 154.4},
-                'BAT': {'perc': '17.18%', 'price': 1.3298, 'value': 248.4},
-                'GALA': {'perc': '12.10%', 'price': 0.10894, 'value': 174.8},
-                'MANA': {'perc': '27.15%', 'price': 3.7773, 'value': 392.4},
-                'USDT': {'perc': '20.92%', 'price': 1.0, 'value': 302.4},
+                'BTC': {
+                    'fraction': '1.84%',
+                    'price': 60470.31,
+                    'quantity': 0.00032967,
+                    'value': 19.93,
+                },
+                'SOL': {
+                    'fraction': '72.15%',
+                    'price': 218.76,
+                    'quantity': 3.57446,
+                    'value': 781.9,
+                },
+                'USDT': {
+                    'fraction': '25.95%',
+                    'price': 1.0,
+                    'quantity': 281.21525993,
+                    'value': 281.2,
+                }
             },
-            'value': 1445.636287122,
+            'value': 1083.8,
         }
         """
 
@@ -279,6 +291,7 @@ class BinanceAPI:
                 if "USD" not in name:
                     price = prices[name + "USDT"]
                 assets[name] = {
+                    "quantity": quantity,
                     "price": price,
                     "value": price * quantity,
                 }
@@ -296,35 +309,192 @@ class BinanceAPI:
 
         return None, data
 
-    def trade(self, symbol, quantity=None, value=None, side="BUY/SELL", limit_price=None):
-        """现货交易 (这个函数有问题，待排查，暂时无法执行)"""
+    def buy(self, symbol, quantity=None, value=None, limit_price=None):
+        """现货买入
 
-        if quantity is None and value is None:
-            return "quantity/value不能同时为空", None
-        elif quantity is not None and value is not None:
+        returns None, {
+            'clientOrderId': 'WgLt8BIwOe3ya3MBiHTIzW',
+            'cummulativeQuoteQty': '19.94599530',
+            'executedQty': '0.00033000',
+            'fills': [{'commission': '0.00000033',
+                        'commissionAsset': 'BTC',
+                        'price': '60442.41000000',
+                        'qty': '0.00033000',
+                        'tradeId': 1150128819}],
+            'orderId': 8300640584,
+            'orderListId': -1,
+            'origQty': '0.00033000',
+            'price': '0.00000000',
+            'side': 'BUY',
+            'status': 'FILLED',
+            'symbol': 'BTCUSDT',
+            'timeInForce': 'GTC',
+            'transactTime': 1637201885195,
+            'type': 'MARKET',
+        }
+        """
+
+        if quantity is not None and value is not None:
             return "quantity/value不能同时不为空", None
 
         url = "%s/order" % self.BASE_URL
-        params = {"timestamp": int(1000 * time.time())}
 
+        # 根据账户余额获取交易额
+        if value is None:
+            if symbol.endswith("USDT"):
+                currency = "USDT"
+            elif symbol.endswith("BUSD"):
+                currency = "BUSD"
+            else:
+                return "现货交易失败: 不支持快速交易%s，请填写quantity/value字段" % symbol, None
+            err, account_info = self.get_account_value()
+            if err is not None:
+                return "现货交易失败: %s" % self._process_error(err), None
+            if currency not in account_info["assets"]:
+                return "现货交易失败: 无可用%s，请确认账户持仓" % currency, None
+            value = account_info["assets"][currency]["value"]
+            if value < 10:
+                return "现货交易失败: %s余额需大于$10" % currency, None
+
+        # 根据价格获取交易量
+        if quantity is None:
+            if limit_price is None:
+                err, tmp = self.get_price(symbol)
+                if err is not None:
+                    return "现货交易失败: %s" % err, None
+                price = float(tmp["price"])
+            else:
+                price = limit_price
+            quantity = value / price
+        quantity = utils.standardize(quantity, valid=2)
+
+        # 限价/市价委托
+        params = {
+            "symbol": symbol,
+            "side": "BUY",
+            "quantity": quantity,
+            "timestamp": int(1000 * time.time()),
+            "recvWindow": 5000,
+        }
         if limit_price is not None:    # 限价委托
             params["type"] = "LIMIT"
-            params["price"] = "%.8f" % limit_price
             params["timeInForce"] = "GTC"
+            params["price"] = float(limit_price)
         else:
             params["type"] = "MARKET"
 
-        params["symbol"] = symbol
-        params["side"] = side
-        params["quantity"] = "%.8f" % quantity
-
         # 请求
         try:
-            return None, self._request_with_sign(url, params)
+            return None, self._post_with_sign(url, params)
         except Exception as e:
             return "现货交易失败: %s" % self._process_error(e), None
 
-    def _request_with_sign(self, url, params):
+    def sell(self, symbol, quantity=None, value=None, limit_price=None):
+        """现货卖出
+
+        returns None, {
+            'clientOrderId': '1fneZMNyZk7KTFoZLZuFtK',
+            'cummulativeQuoteQty': '30.24814000',
+            'executedQty': '0.00050000',
+            'fills': [{'commission': '0.03024814',
+                        'commissionAsset': 'USDT',
+                        'price': '60496.28000000',
+                        'qty': '0.00050000',
+                        'tradeId': 1150160363}],
+            'orderId': 8300961476,
+            'orderListId': -1,
+            'origQty': '0.00050000',
+            'price': '0.00000000',
+            'side': 'SELL',
+            'status': 'FILLED',
+            'symbol': 'BTCUSDT',
+            'timeInForce': 'GTC',
+            'transactTime': 1637204827321,
+            'type': 'MARKET',
+        }
+        """
+
+        if quantity is not None and value is not None:
+            return "quantity/value不能同时不为空", None
+
+        url = "%s/order" % self.BASE_URL
+
+        # 根据账户余额获取交易额
+        if quantity is None and value is None:
+            if symbol.endswith("USDT"):
+                asset = symbol[:-4]
+            elif symbol.endswith("BUSD"):
+                asset = symbol[:-4]
+            else:
+                return "现货交易失败: 不支持快速交易%s，请填写quantity/value字段" % symbol, None
+            err, account_info = self.get_account_value()
+            if err is not None:
+                return "现货交易失败: %s" % self._process_error(err), None
+            if asset not in account_info["assets"]:
+                return "现货交易失败: 无可用%s，请确认账户持仓" % asset, None
+            quantity = account_info["assets"][asset]["quantity"]
+            value = account_info["assets"][asset]["value"]
+            if value < 10:
+                return "现货交易失败: %s余额需大于$10" % asset, None
+
+        # 根据价格获取交易量
+        if quantity is None:
+            if limit_price is None:
+                err, tmp = self.get_price(symbol)
+                if err is not None:
+                    return "现货交易失败: %s" % err, None
+                price = float(tmp["price"])
+            else:
+                price = limit_price
+            quantity = value / price
+        quantity = utils.standardize(quantity, valid=2)
+
+        # 限价/市价委托
+        params = {
+            "symbol": symbol,
+            "side": "SELL",
+            "quantity": quantity,
+            "timestamp": int(1000 * time.time()),
+            "recvWindow": 5000,
+        }
+        if limit_price is not None:    # 限价委托
+            params["type"] = "LIMIT"
+            params["timeInForce"] = "GTC"
+            params["price"] = float(limit_price)
+        else:
+            params["type"] = "MARKET"
+
+        # 请求
+        try:
+            return None, self._post_with_sign(url, params)
+        except Exception as e:
+            return "现货交易失败: %s" % self._process_error(e), None
+
+    def _post_with_sign(self, url, params):
+        """带有签名的HTTP请求"""
+
+        params = self._sign(params)
+        query = urllib.parse.urlencode(params)
+        header = {"X-MBX-APIKEY": self.key}
+        url = "%s" % url
+        if self.verbosity > 1:
+            print("REQUEST: ", url)
+            print(query)
+
+        # 请求
+        data = requests.post(url, headers=header, data=query, timeout=180, verify=True)
+        try:
+            d = data.json()
+            if self.lost_connection and self.verbosity > 0:
+                print("网络连接已恢复")
+                self.lost_connection = False
+            return d
+        except Exception as e:
+            if self.verbosity > 1:
+                print(data.content.decode("utf-8"))
+            raise e
+
+    def _get_with_sign(self, url, params):
         """带有签名的HTTP请求"""
 
         params = self._sign(params)
@@ -347,7 +517,7 @@ class BinanceAPI:
                 print(data.content.decode("utf-8"))
             raise e
 
-    def _request_without_sign(self, url, params):
+    def _get_without_sign(self, url, params):
         """不带签名的HTTP请求"""
         query = urllib.parse.urlencode(params)
         url = "%s?%s" % (url, query)
@@ -388,13 +558,13 @@ class BinanceAPI:
     def _process_error(self, e):
         """处理报错"""
 
-        self.lost_connection = True
         msg = "%s" % e
-        if self.verbosity > 0:
+        if not self.lost_connection and self.verbosity > 0:
             if (msg.startswith("HTTPSConnectionPool") or "RemoteDisconnected" in msg):
                 print("网络连接失败")
             else:
                 print(msg)
+        self.lost_connection = True
         return msg
 
 
@@ -406,7 +576,7 @@ with open("api.conf", encoding="utf-8") as f:
     instance = BinanceAPI(
         api_conf["API Key"],
         api_conf["Secret Key"],
-        verbosity=1,
+        verbosity=0,
     )
 
 
@@ -420,7 +590,8 @@ if __name__ == "__main__":
     # pprint.pprint(instance.get_price_change("BTCUSDT", interval="24hr"))    # 获取价格区间变动
     # pprint.pprint(instance.get_account())    # 获取账户信息
     # pprint.pprint(instance.get_account_value())    # 获取账户价值
-    # pprint.pprint(instance.trade("BTCUSDT", quantity=1.0, side="BUY", limit_price=None))    # 现货交易 (暂时无法执行)
+    # pprint.pprint(instance.buy("BTCUSDT", quantity=None, value=20, limit_price=None))    # 现货买入 (市价买入$20BTC)
+    # pprint.pprint(instance.sell("BTCUSDT", quantity=None, value=None, limit_price=None))    # 现货卖出 (市价卖出所有BTC)
 
     # 定期打印账户价值
     while True:
