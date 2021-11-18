@@ -21,9 +21,10 @@ class BinanceAPI:
     FUTURE_URL = "https://fapi.binance.com"
     PUBLIC_URL = "https://www.binance.com/exchange/public/product"
 
-    def __init__(self, key, secret, verbosity=0):
+    def __init__(self, key, secret, basic_currency="USDT", verbosity=0):
         self.key = key    # API Key
         self.secret = secret    # Secret Key
+        self.basic_currency = "USDT"    # 基础货币(一键平仓时将自动将资产出售为该货币)
         self.verbosity = verbosity
 
         self.lost_connection = False    # 是否断开网络连接
@@ -289,7 +290,7 @@ class BinanceAPI:
             if quantity > 0:
                 price = 1.0
                 if "USD" not in name:
-                    price = prices[name + "USDT"]
+                    price = prices[name + self.basic_currency]
                 assets[name] = {
                     "quantity": quantity,
                     "price": price,
@@ -473,18 +474,34 @@ class BinanceAPI:
     def sell_all(self):
         """一键平仓"""
 
+        # 获取账户持仓
         err, account_info = self.get_account_value()
         if err is not None:
             return "一键平仓失败: %s" % self._process_error(err), None
+
+        # 逐一平仓
+        info = {
+            "success": {},
+            "fail": {},
+        }
         for asset, asset_info in account_info["assets"].items:
             if "USD" in asset:
                 continue
             value = asset_info["value"]
             if value < 10:
                 continue
-            err, _ = self.sell(asset + "USDT")
+            err, _ = self.sell(asset + self.basic_currency)
             if err is not None:
-                continue
+                info["fail"][asset] = {
+                    "fail": err,
+                    "asset_info": asset_info,
+                }
+            else:
+                info["success"][asset] = asset_info
+
+        if self.verbosity > 0:
+            print("一键平仓")
+        return None, info
 
     def _post_with_sign(self, url, params):
         """带有签名的HTTP请求"""

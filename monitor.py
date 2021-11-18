@@ -4,6 +4,7 @@ import os
 import time
 import pygame
 
+from binance import instance
 import data_loader
 import utils
 
@@ -94,6 +95,13 @@ class Monitor:
         for i in range(1, 10):
             if price > self.prices[-1-i] * 0.99:
                 continue
+
+            # 一键平仓 (建议开启)
+            err, info = instance.sell_all()
+            if err is None and info["success"]:
+                print("\033[1;31m%s <<< 强制平仓\033[0m" % (
+                    utils.tic2time(tic),
+                ))
 
             if self.last_alarm != -1 or time.time() - self.last_alarm_tic > 600:
                 print("\033[1;31m%s >>> %s, $%s, %s分钟内价格下跌%.1f%%\033[0m" % (    # 显示红色字体
