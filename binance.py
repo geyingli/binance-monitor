@@ -346,22 +346,22 @@ class BinanceAPI:
             elif symbol.endswith("BUSD"):
                 currency = "BUSD"
             else:
-                return "现货交易失败: 不支持快速交易%s，请填写quantity/value字段" % symbol, None
+                return "现货买入失败: 不支持快速交易%s，请填写quantity/value字段" % symbol, None
             err, account_info = self.get_account_value()
             if err is not None:
-                return "现货交易失败: %s" % self._process_error(err), None
+                return "现货买入失败: %s" % self._process_error(err), None
             if currency not in account_info["assets"]:
-                return "现货交易失败: 无可用%s，请确认账户持仓" % currency, None
+                return "现货买入失败: 无可用%s，请确认账户持仓" % currency, None
             value = account_info["assets"][currency]["value"]
             if value < 10:
-                return "现货交易失败: %s余额需大于$10" % currency, None
+                return "现货买入失败: %s余额需大于$10" % currency, None
 
         # 根据价格获取交易量
         if quantity is None:
             if limit_price is None:
                 err, tmp = self.get_price(symbol)
                 if err is not None:
-                    return "现货交易失败: %s" % err, None
+                    return "现货买入失败: %s" % err, None
                 price = float(tmp["price"])
             else:
                 price = limit_price
@@ -387,7 +387,7 @@ class BinanceAPI:
         try:
             return None, self._post_with_sign(url, params)
         except Exception as e:
-            return "现货交易失败: %s" % self._process_error(e), None
+            return "现货买入失败: %s" % self._process_error(e), None
 
     def sell(self, symbol, quantity=None, value=None, limit_price=None):
         """现货卖出
@@ -426,23 +426,23 @@ class BinanceAPI:
             elif symbol.endswith("BUSD"):
                 asset = symbol[:-4]
             else:
-                return "现货交易失败: 不支持快速交易%s，请填写quantity/value字段" % symbol, None
+                return "现货卖出失败: 不支持快速交易%s，请填写quantity/value字段" % symbol, None
             err, account_info = self.get_account_value()
             if err is not None:
-                return "现货交易失败: %s" % self._process_error(err), None
+                return "现货卖出失败: %s" % self._process_error(err), None
             if asset not in account_info["assets"]:
-                return "现货交易失败: 无可用%s，请确认账户持仓" % asset, None
+                return "现货卖出失败: 无可用%s，请确认账户持仓" % asset, None
             quantity = account_info["assets"][asset]["quantity"]
             value = account_info["assets"][asset]["value"]
             if value < 10:
-                return "现货交易失败: %s余额需大于$10" % asset, None
+                return "现货卖出失败: %s余额需大于$10" % asset, None
 
         # 根据价格获取交易量
         if quantity is None:
             if limit_price is None:
                 err, tmp = self.get_price(symbol)
                 if err is not None:
-                    return "现货交易失败: %s" % err, None
+                    return "现货卖出失败: %s" % err, None
                 price = float(tmp["price"])
             else:
                 price = limit_price
@@ -468,7 +468,23 @@ class BinanceAPI:
         try:
             return None, self._post_with_sign(url, params)
         except Exception as e:
-            return "现货交易失败: %s" % self._process_error(e), None
+            return "现货卖出失败: %s" % self._process_error(e), None
+
+    def sell_all(self):
+        """一键平仓"""
+
+        err, account_info = self.get_account_value()
+        if err is not None:
+            return "一键平仓失败: %s" % self._process_error(err), None
+        for asset, asset_info in account_info["assets"].items:
+            if "USD" in asset:
+                continue
+            value = asset_info["value"]
+            if value < 10:
+                continue
+            err, _ = self.sell(asset + "USDT")
+            if err is not None:
+                continue
 
     def _post_with_sign(self, url, params):
         """带有签名的HTTP请求"""
