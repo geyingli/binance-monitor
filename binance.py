@@ -484,16 +484,21 @@ class BinanceAPI:
             "success": {},
             "fail": {},
         }
-        for asset, asset_info in account_info["assets"].items:
+        for asset, asset_info in account_info["assets"].items():
             if "USD" in asset:
                 continue
             value = asset_info["value"]
             if value < 10:
                 continue
-            err, _ = self.sell(asset + self.basic_currency)
+            err, info_ = self.sell(asset + self.basic_currency)
             if err is not None:
                 info["fail"][asset] = {
                     "fail": err,
+                    "asset_info": asset_info,
+                }
+            elif "code" in info_:
+                info["fail"][asset] = {
+                    "fail": info_["msg"],
                     "asset_info": asset_info,
                 }
             else:
@@ -625,6 +630,7 @@ if __name__ == "__main__":
     # pprint.pprint(instance.get_account_value())    # 获取账户价值
     # pprint.pprint(instance.buy("BTCUSDT", quantity=None, value=20, limit_price=None))    # 现货买入 (市价买入$20BTC)
     # pprint.pprint(instance.sell("BTCUSDT", quantity=None, value=None, limit_price=None))    # 现货卖出 (市价卖出所有BTC)
+    # pprint.pprint(instance.sell_all())    # 现货卖出 (一键平仓)
 
     # 定期打印账户价值
     while True:

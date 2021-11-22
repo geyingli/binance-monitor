@@ -56,7 +56,7 @@ class Monitor:
 
         # 突破7天/7小时均交易额一定倍数，且在50万美元以上；价格大于7天/7小时/7分钟均价
         if (volume > self.ma_7d_volume * self.volume_ratio and volume > self.ma_7h_volume * self.volume_ratio) and \
-                (price > self.ma_7d_price and price > self.ma_7h_price and price > self.ma_7m_price) and volume > 500000:
+                (price > self.ma_7d_price and price > self.ma_7h_price and price > self.ma_7m_price) and volume > 1000000:
 
             if self.last_alarm != 1 or time.time() - self.last_alarm_tic > 600:
                 print("%s >>> %s, $%s, 交易额突增%.1f倍 ($%d万)" % (
