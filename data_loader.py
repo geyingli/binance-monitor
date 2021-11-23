@@ -149,7 +149,7 @@ def get_latest_data(symbol, interval, init_timestamp, verbosity=1):
 
         # 获取数据
         end_timestamp = start_timestamp + timestamp_interval - 1
-        err, data = instance.get_prices(symbol, interval, start_timestamp, end_timestamp)
+        err, data = instance.get_interval_prices(symbol, interval, start_timestamp, end_timestamp)
         if err is not None:    # 网络问题等造成失败，重试
             time.sleep(1)
             continue
