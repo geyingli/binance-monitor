@@ -1,4 +1,4 @@
-# 主程序，监控市场，提供舆情提示
+# 主程序，监控市场，提供行情提示
 
 import os
 import time
@@ -10,6 +10,7 @@ import utils
 
 
 class Monitor:
+    """监控单一交易对的价量"""
 
     def __init__(
         self,
@@ -17,13 +18,13 @@ class Monitor:
         tics,                                   # 时间戳
         prices,                                 # 价格
         volumes,                                # 交易额
-        volume_ratio=10,                        # 超出均交易额多大比例认为交易额突增
+        volume_break_out_ratio=10,              # 超出均交易额多大比例认为交易额突增
     ):
         self.symbol = symbol
         self.tics = tics
         self.prices = prices
         self.volumes = volumes
-        self.volume_ratio = volume_ratio
+        self.volume_break_out_ratio = volume_break_out_ratio
         self.last_alarm = None    # 上一次提示内容
         self.last_alarm_tic = -1    # 上一次提示时间戳 (避免同一条信息重复提醒)
 
@@ -47,7 +48,7 @@ class Monitor:
         self.prices.pop(0)
         self.volumes.pop(0)
 
-    def execute(self):
+    def implement(self):
         """执行监控，同类提示每10分钟最多一次"""
 
         tic = self.tics[-1]
@@ -55,7 +56,7 @@ class Monitor:
         volume = self.volumes[-1]
 
         # 突破7天/7小时均交易额一定倍数，且在50万美元以上；价格大于7天/7小时/7分钟均价
-        if (volume > self.ma_7d_volume * self.volume_ratio and volume > self.ma_7h_volume * self.volume_ratio) and \
+        if (volume > self.ma_7d_volume * self.volume_break_out_ratio and volume > self.ma_7h_volume * self.volume_break_out_ratio) and \
                 (price > self.ma_7d_price and price > self.ma_7h_price and price > self.ma_7m_price) and volume > 1000000:
 
             if self.last_alarm != 1 or time.time() - self.last_alarm_tic > 600:
@@ -139,7 +140,7 @@ if __name__ == "__main__":
             data.tics[-data_loader.DAY*7:],
             data.prices[-data_loader.DAY*7:],
             data.volumes[-data_loader.DAY*7:],
-            volume_ratio=10,
+            volume_break_out_ratio=10,
         )
         last_timestamps[coin] = data.tics[-1]
 
@@ -192,6 +193,6 @@ if __name__ == "__main__":
                         price=float(item[4]),
                         volume=float(item[7]),
                     )
-                    monitor.execute()
+                    monitor.implement()
                     f.write("%s\n" % "\t".join(list(map(str, item))))
             last_timestamps[coin] = int(latest_data[-1][0])

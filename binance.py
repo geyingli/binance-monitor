@@ -59,8 +59,8 @@ class BinanceAPI:
         except Exception as e:
             return "获取服务器时间戳失败: %s" % self._process_error(e), None
 
-    def get_price(self, symbol=None):
-        """获取资产现价
+    def get_price(self, symbol):
+        """获取特定资产现价
 
         returns: None, {
             "symbol": "LTCBTC",
@@ -77,7 +77,28 @@ class BinanceAPI:
         try:
             return None, self._get_without_sign(url, params)
         except Exception as e:
-            return "获取资产现价失败: %s" % self._process_error(e), None
+            return "获取特定资产现价失败: %s" % self._process_error(e), None
+
+    def get_prices(self):
+        """获取所有资产现价
+
+        returns: None, [
+            {
+                "symbol": "LTCBTC",
+                "price": "4.00000200",
+            },
+            ...
+        ]
+        """
+
+        url = "%s/ticker/price" % self.BASE_URL
+        params = {}
+
+        # 请求
+        try:
+            return None, self._get_without_sign(url, params)
+        except Exception as e:
+            return "获取所有资产现价失败: %s" % self._process_error(e), None
 
     def get_price_change(self, symbol, interval="24hr"):
         """获取资产区间交易信息
@@ -135,7 +156,7 @@ class BinanceAPI:
         except Exception as e:
             return "获取资产挂单价失败: %s" % self._process_error(e), None
 
-    def get_prices(self, symbol, interval="1m", startTime=None, endTime=None):
+    def get_interval_prices(self, symbol, interval="1m", startTime=None, endTime=None):
         """获取区间价格
 
         returns: None, [
@@ -239,7 +260,7 @@ class BinanceAPI:
         except Exception as e:
             return "获取账户信息失败: %s" % self._process_error(e), None
 
-    def get_account_value(self):
+    def get_account_value(self, ignore_small_amount_asset=True):
         """获取账户剩余价值
 
         returns: None, {
@@ -274,7 +295,7 @@ class BinanceAPI:
 
         # 获取价格
         prices = {}
-        err, tmp_prices = self.get_price()
+        err, tmp_prices = self.get_prices()
         if err is not None:
             return "获取账户信息失败: %s" % err, None
         for market in tmp_prices:
@@ -298,7 +319,7 @@ class BinanceAPI:
                 }
         total_value = sum([v["value"] for _, v in assets.items()])
         for asset in list(assets.keys()):
-            if assets[asset]["value"] < 10:    # 小额资产不予显示
+            if ignore_small_amount_asset and assets[asset]["value"] < 10:    # 小额资产不予显示
                 assets.pop(asset)
                 continue
             assets[asset]["fraction"] = "%.2f%%" % (assets[asset]["value"] / total_value * 100)
@@ -622,9 +643,9 @@ if __name__ == "__main__":
 
     # pprint.pprint(instance.get_ping())    # 检测是否与服务器连接成功
     # pprint.pprint(instance.get_time())    # 获取服务器时间戳
-    # pprint.pprint(instance.get_price())    # 获取所有资产价格
     # pprint.pprint(instance.get_price("BTCUSDT"))    # 获取指定资产价格
-    # pprint.pprint(instance.get_prices("BTCUSDT", interval="1h", startTime=None, endTime=None))    # 获取价格区间
+    # pprint.pprint(instance.get_prices())    # 获取所有资产价格
+    # pprint.pprint(instance.get_interval_prices("BTCUSDT", interval="1h", startTime=None, endTime=None))    # 获取价格区间
     # pprint.pprint(instance.get_price_change("BTCUSDT", interval="24hr"))    # 获取价格区间变动
     # pprint.pprint(instance.get_account())    # 获取账户信息
     # pprint.pprint(instance.get_account_value())    # 获取账户价值
