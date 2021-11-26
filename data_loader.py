@@ -1,6 +1,7 @@
 # 包含数据的读写相关程序
 
 import os
+import sys
 import time
 from binance import instance
 
@@ -94,19 +95,19 @@ def get_moving_average(prices, interval):
     return target_prices
 
 
-def update_data_all(verbosity=1):
+def update_data_all(data_dir="data", init_data_days=7, verbosity=1):
     """更新所有数据"""
 
-    utils.mkdir("data")
+    utils.mkdir(data_dir)
 
     # 遍历所有目标币种，以分钟为单位读取和更新数据
     for i, coin in enumerate(COINS):
         if verbosity:
             print("%s (%d/%d)" % (coin, i + 1, len(COINS)))
-        data_loader(coin, "1m", "data/%s.1m.data" % coin, verbosity)
+        update_data(coin, "1m", "%s/%s.1m.data" % (data_dir, coin), init_data_days, verbosity)
 
 
-def data_loader(symbol, interval, file, verbosity=1):
+def update_data(symbol, interval, file, init_data_days=7, verbosity=1):
     """加载新币种，或更新新数据"""
 
     # 新文件从七天前开始取数据，已有文件则继续累积数据
@@ -114,7 +115,7 @@ def data_loader(symbol, interval, file, verbosity=1):
     if last_timestamp:
         init_timestamp = last_timestamp + 60 * TIMESTAMP_UNIT
     else:
-        init_timestamp = int(time.time() - 7 * 24 * 60 * 60) * TIMESTAMP_UNIT
+        init_timestamp = int(time.time() - init_data_days * 24 * 60 * 60) * TIMESTAMP_UNIT
 
     # 获取最新数据
     latest_data = get_latest_data(symbol, interval, init_timestamp, verbosity)
@@ -194,4 +195,15 @@ def get_last_timestamp(file):
 
 
 if __name__ == "__main__":
-    update_data_all()
+
+    if len(sys.argv) < 3:
+        print("Usage: python3 data_loader.py [data_dir] [days]        e.g. python3 data_loader.py data 7")
+        sys.exit(-1)
+    data_dir = sys.argv[1]
+    init_data_days = int(sys.argv[2])
+
+    update_data_all(
+        data_dir=data_dir,
+        init_data_days=init_data_days,
+        verbosity=1,
+    )

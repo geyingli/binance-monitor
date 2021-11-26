@@ -71,7 +71,7 @@ class MockAccount(Account):
 
         # 自动触发
         for asset in list(self.account_info["assets"].keys()):
-            if asset == "USDT":
+            if asset == self.basic_currency:
                 continue
             symbol = asset + self.basic_currency
             price = self.last_prices[symbol]
@@ -242,8 +242,6 @@ class MockAccount(Account):
 
         if percentage == 1.0:
             self.account_info["assets"].pop(asset)
-            # self.account_info["assets"][asset]["value"] = 0.0
-            # self.account_info["assets"][asset]["quantity"] = 0.0
         else:
             self.account_info["assets"][asset]["value"] -= value
             self.account_info["assets"][asset]["quantity"] -= trading_quantity
@@ -253,7 +251,7 @@ class MockAccount(Account):
     def close_all(self):
         """无条件全部平仓"""
         for asset in list(self.account_info["assets"].keys()):
-            if asset == "USDT":
+            if asset == self.basic_currency:
                 continue
             symbol = asset + self.basic_currency
             self.close(symbol)
@@ -360,19 +358,40 @@ class Momentum(Strategy):
     def implement(self, lag):
         """执行监控，同类提示每10分钟最多一次"""
 
-        # 交易三个条件：
-        #   1) 数据延期不高
-        #   2) 账户拥有足额稳定币
-        #   3) 账户当前不持有该币种
-        #   4) 该币种符合当下交易条件
-        if lag > 2:    # 超过XX分钟，不予交易
+        global last_close_all
+
+        # 平多：一定时间内BTC价格下跌1%
+        if self.symbol == "BTC" + self.basic_currency:
+            for i in range(1, 10):
+                if self.prices[-1] > self.prices[-1-i] * 0.99:
+                    continue
+                context = "%s分钟内价格下跌%.1f%%" % (
+                    i,
+                    (1 - self.prices[-1] / self.prices[-1-i]) * 100,
+                )
+                self.close_all(context)
+                last_close_all = self.tics[-1]
+                return
+
+        # 数据延期不高
+        if lag > 2:
             return
+
+        # 账户拥有足额稳定币
         balance = 0
         if self.basic_currency in account.account_info["assets"]:
             balance = account.account_info["assets"][self.basic_currency]["value"]    # 可交易稳定币余额
         trading_volume = max(account.account_info["value"] * self.volume_per_asset, 1000)    # 开仓金额
-        if balance < trading_volume or (self.asset in account.account_info["assets"] and account.account_info["assets"][self.asset]["value"] > 10):
+        if balance < trading_volume:
             return
+
+        # 账户当前不持有该币种
+        if self.asset in account.account_info["assets"] and account.account_info["assets"][self.asset]["value"] > 10:
+            return
+
+        # 距离上一次BTC快速下跌不足6小时
+        # if self.tics[-1] - last_close_all < 6 * 60 * 60 * data_loader.TIMESTAMP_UNIT:
+        #     return
 
         # 做多：突破7天/7小时均交易额一定倍数，且在50万美元以上；价格大于7天/7小时/7分钟均价
         if (self.volumes[-1] > self.ma_7d_volume * self.volume_break_out_ratio and self.volumes[-1] > self.ma_7h_volume * self.volume_break_out_ratio) and \
@@ -385,27 +404,14 @@ class Momentum(Strategy):
             return
 
         # 做多：一定时间内价格上涨5%
-        # for i in range(1, 10):
-        #     if self.prices[-1] < self.prices[-1-i] * 1.05:
-        #         continue
-        #     context = "%s分钟内价格上涨%.1f%%" % (
-        #         i,
-        #         (self.prices[-1] / self.prices[-1-i] - 1) * 100,
-        #     )
-        #     self.long(context, trading_volume)
-        #     return
-
-        # 平多：一定时间内BTC价格下跌1%
-        if self.symbol != "BTC" + self.basic_currency or len(account.account_info["assets"]) == 1:
-            return
         for i in range(1, 10):
-            if self.prices[-1] > self.prices[-1-i] * 0.99:
+            if self.prices[-1] < self.prices[-1-i] * 1.05:
                 continue
-            context = "%s分钟内价格下跌%.1f%%" % (
+            context = "%s分钟内价格上涨%.1f%%" % (
                 i,
-                (1 - self.prices[-1] / self.prices[-1-i]) * 100,
+                (self.prices[-1] / self.prices[-1-i] - 1) * 100,
             )
-            self.close_all(context)
+            self.long(context, trading_volume)
             return
 
     def long(self, context, trading_volume):
@@ -447,17 +453,27 @@ class Momentum(Strategy):
             pygame.mixer.music.play()    # 播放提示音
 
 
+def get_top_traded_pairs(models, n=50):
+    """获取头部交易对"""
+    items = [(symbol, models[symbol].ma_7d_volume) for symbol in models]
+    items.sort(key=lambda x: x[1], reverse=True)
+    top = [item[0] for item in items][:n]
+    top = {item: 1 for item in top}
+    return top
+
+
 if __name__ == "__main__":
 
-    start_timestamp = utils.time2tic(2021, 10, 23, 18, 0, 0) * data_loader.TIMESTAMP_UNIT
-    end_timestamp = utils.time2tic(2021, 11, 20, 17, 59, 59) * data_loader.TIMESTAMP_UNIT
+    start_timestamp = utils.time2tic(2021, 2, 23, 18, 0, 0) * data_loader.TIMESTAMP_UNIT
+    end_timestamp = utils.time2tic(2021, 10, 23, 17, 59, 59) * data_loader.TIMESTAMP_UNIT
+    basic_currency = "USDT"
+    data_dir = ".backup/data"
 
     print("为所有币种创建模型...")
     models = {}
-    price_list = []    # 模拟instance.get_prices()输出
     data_iterators = {}
     for symbol in data_loader.COINS:
-        file = "data/%s.1m.data" % symbol
+        file = "%s/%s.1m.data" % (data_dir, symbol)
         if not os.path.exists(file):
             continue
         data = data_loader.Data(file)    # 读取历史数据
@@ -468,65 +484,72 @@ if __name__ == "__main__":
             if data.tics[i] == start_timestamp:
                 t = i
                 break
+        if t == -1:    # 无有效数据
+            continue
         data.tics = data.tics[t:]
         data.prices = data.prices[t:]
         data.volumes = data.volumes[t:]
         if len(data.prices) < data_loader.DAY * 7:    # 数据不满足监控条件（需要计算滑动平均价/交易额）
             continue
-        models[symbol] = Momentum(    # 创建模型
+
+        # 创建模型
+        models[symbol] = Momentum(
             symbol,
-            data.tics[:data_loader.DAY * 7],
-            data.prices[:data_loader.DAY * 7],
-            data.volumes[:data_loader.DAY * 7],\
+            data.tics[:data_loader.DAY * 7 + 1],
+            data.prices[:data_loader.DAY * 7 + 1],
+            data.volumes[:data_loader.DAY * 7 + 1],
+            basic_currency=basic_currency,
             volume_break_out_thresh=1000000,
             volume_break_out_ratio=10,
             volume_per_asset=0.1,
             limit_profit_ratio=0.1,
             limit_loss_ratio=0.1,
         )
-        if symbol == "BTCUSDT":
-            btc_price = data.prices[data_loader.DAY * 7 - 1]
-        price_list.append({
-            "symbol": symbol,
-            "price": data.prices[data_loader.DAY * 7 - 1],
-        })
-        data_iterators[symbol] = [    # 模拟获取数据
-            data.tics[data_loader.DAY * 7:],
-            data.prices[data_loader.DAY * 7:],
-            data.volumes[data_loader.DAY * 7:],
+
+        # 记录最新时间戳、价格
+        tic = data.tics[data_loader.DAY * 7]
+        price = data.prices[data_loader.DAY * 7]
+        if symbol == "BTC" + basic_currency:
+            btc_price = price
+
+        # 创建数据迭代器，模拟获取未来数据
+        data_iterators[symbol] = [
+            data.tics[data_loader.DAY * 7 + 1:],
+            data.prices[data_loader.DAY * 7 + 1:],
+            data.volumes[data_loader.DAY * 7 + 1:],
         ]
 
     print("初始化模拟账户...")
-    account = MockAccount(init_balance=btc_price)    # 方便作图，对比收益
-    account.update(data.tics[data_loader.DAY * 7 - 1], price_list)
-
-    print("计算头部交易额币种...")
-    items = [(symbol, models[symbol].ma_7d_volume) for symbol in models]
-    items.sort(key=lambda x: x[1], reverse=True)
-    top = {}
-    for i, item in enumerate(items[:50]):
-        symbol = item[0]
-        mean_volume = item[1]
-        print("No.%d %s $%d" % (i + 1, symbol, mean_volume))
-        top[symbol] = models[symbol]
+    account = MockAccount(
+        init_balance=btc_price,    # 方便作图，对比收益
+        basic_currency=basic_currency,
+    )
 
     print("开始执行策略...")
     pygame.mixer.init()
     pygame.mixer.music.load("refs/alarm.mp3")
     stop = False
+    top = {}
+    last_cal_top = -1
     last_record = -1
-    times = []
-    btc_prices = []
+    last_draw = tic
+    last_close_all = -1
+    hold = {}
+    mock_times = []
+    mock_benchmark = []
     mock_values = []
+    mock_values_window = []
     while True:
 
         # 更新模型数据
         price_list = []
-        for symbol, model in top.items():
-            if len(data_iterators[symbol][0]) == 0:    # 数据用尽 (平仓)
-                print("数据用尽: %s" % utils.tic2time(model.tics[-1]))
-                stop = True
-                break
+        for symbol in list(models.keys()):
+            model = models[symbol]
+            if len(data_iterators[symbol][0]) == 0:    # 数据未下载完全/币已从交易所下线
+                models.pop(symbol)
+                if symbol in top:
+                    top.pop(symbol)
+                continue
             tic = int(data_iterators[symbol][0].pop(0))
             price = float(data_iterators[symbol][1].pop(0))
             volume = float(data_iterators[symbol][2].pop(0))
@@ -534,7 +557,7 @@ if __name__ == "__main__":
                 print("模拟结束")
                 stop = True
                 break
-            if symbol == "BTCUSDT":
+            if symbol == "BTC" + basic_currency:
                 btc_price = price
             price_list.append({
                 "symbol": symbol,
@@ -545,7 +568,7 @@ if __name__ == "__main__":
                 price=price,
                 volume=volume,
             )
-        if stop:
+        if stop or len(models) == 0:
             break
 
         # 更新账户状态
@@ -553,19 +576,55 @@ if __name__ == "__main__":
         pprint.pprint(account.account_info)
         print(utils.tic2time(tic))
 
-        # 模拟策略
-        for symbol, model in top.items():
-            model.implement(lag=0)
+        # 下跌过快则全部平仓
+        # mock_values_window.append(account.account_info["value"])
+        # if len(mock_values_window) > 5:
+        #     mock_values_window.pop(0)
+        # for i in range(1, len(mock_values_window)):
+        #     if mock_values_window[-1] > mock_values_window[-1-i] * 0.98:
+        #         continue
+        #     account.close_all()
+        #     break
 
-        # 记录
-        if tic - last_record > 60 * 60 * data_loader.TIMESTAMP_UNIT:
-            times.append(utils.tic2time(tic))
-            btc_prices.append(btc_price)
+        # 记录持仓，时间过久则卖出
+        for asset in list(account.account_info["assets"].keys()):
+            if asset == basic_currency:
+                continue
+            if asset not in hold:
+                hold[asset] = 0
+            hold[asset] += 1
+            if hold[asset] > 3 * data_loader.DAY:    # 3天一次
+                account.close(asset + basic_currency)
+        for asset in list(hold.keys()):
+            if asset not in account.account_info["assets"]:    # 已平仓
+                hold.pop(asset)
+
+        # 更新头部列表
+        if tic - last_cal_top > 3 * 60 * 60 * data_loader.TIMESTAMP_UNIT:    # 3小时一次
+            top = get_top_traded_pairs(models, n=50)
+            last_cal_top = tic
+
+        # 执行策略
+        for symbol in top:
+            models[symbol].implement(lag=0)
+
+        # 记录价格变动
+        if tic - last_record > 2 * 60 * 60 * data_loader.TIMESTAMP_UNIT:    # 2小时一次
+            mock_times.append(utils.tic2time(tic))
+            mock_benchmark.append(btc_price)
             mock_values.append(account.account_info["value"])
             last_record = tic
 
+        # 作图
+        if tic - last_draw > 1 * 24 * 60 * 60 * data_loader.TIMESTAMP_UNIT:    # 1天一次
+            plt.figure()
+            plt.plot(mock_times, mock_benchmark, color="black")
+            plt.plot(mock_times, mock_values, color="orange")
+            plt.savefig("mock.png")
+            last_draw = tic
+
     # 作图
     plt.figure()
-    plt.plot(times, btc_prices, color="black")
-    plt.plot(times, mock_values, color="orange")
-    plt.show()
+    plt.plot(mock_times, mock_benchmark, color="black")
+    plt.plot(mock_times, mock_values, color="orange")
+    plt.savefig("mock.png")

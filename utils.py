@@ -3,14 +3,14 @@ import time
 import numpy as np
 
 
-def mkdir(path, clear=False):
+def mkdir(path, clear_existing_files=False):
     """创建文件夹"""
 
     if not os.path.exists(path):
         os.mkdir(path)
 
     # 清理文件夹中已有文件
-    if clear:
+    if clear_existing_files:
         for file in os.listdir(path):
             os.remove(path + "/" + file)
 
